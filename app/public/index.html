@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liste de courses</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 650px; margin: 2rem auto; padding: 0 1rem; background: #f8fafc; color: #1e293b; }
+    h1 { margin-bottom: 0.5rem; }
+    #statut { padding: 0.6rem 1rem; border-radius: 6px; font-weight: 600; margin-bottom: 1.5rem; background: #fee2e2; color: #991b1b; }
+    #statut.ok { background: #dcfce7; color: #166534; }
+    form { display: grid; grid-template-columns: 2fr 1fr 1.5fr auto; gap: 0.5rem; margin-bottom: 1.5rem; }
+    input, select, button { padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; }
+    button { background: #2563eb; color: white; border: none; cursor: pointer; font-weight: 600; }
+    button:hover { background: #1d4ed8; }
+    ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    li { background: white; padding: 0.8rem 1rem; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+    .badge { background: #e2e8f0; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.8rem; margin-left: 0.5rem; }
+    .suppr { background: #ef4444; padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+    .suppr:hover { background: #dc2626; }
+  </style>
+</head>
+<body>
+  <h1>🛒 Liste de courses</h1>
+  <div id="statut">Base : vérification...</div>
+
+  <form id="form-ajout">
+    <input type="text" id="nom" placeholder="Article (ex. Riz)" required />
+    <input type="text" id="quantite" placeholder="Qté (ex. 1 kg)" required />
+    <select id="rayon">
+      <option value="Fruits & Légumes">Fruits & Légumes</option>
+      <option value="Frais">Frais</option>
+      <option value="Épicerie">Épicerie</option>
+      <option value="Boissons">Boissons</option>
+      <option value="Hygiène">Hygiène</option>
+    </select>
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <ul id="liste"></ul>
+
+  <script>
+    async function rafraichir() {
+      const resSante = await fetch("/api/sante");
+      const sante = await resSante.json();
+      const divStatut = document.getElementById("statut");
+      divStatut.textContent = "Base : " + sante.base;
+      divStatut.className = sante.base === "connectée" ? "ok" : "";
+
+      if (sante.base === "connectée") {
+        const res = await fetch("/api/articles");
+        const articles = await res.json();
+        const ul = document.getElementById("liste");
+        ul.innerHTML = articles.map(a => `
+          <li>
+            <div><strong>${a.nom}</strong> (${a.quantite}) <span class="badge">${a.rayon}</span></div>
+            <button class="suppr" onclick="supprimer(${a.id})">Supprimer</button>
+          </li>
+        `).join("");
+      }
+    }
+
+    document.getElementById("form-ajout").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await fetch("/api/articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: document.getElementById("nom").value,
+          quantite: document.getElementById("quantite").value,
+          rayon: document.getElementById("rayon").value
+        })
+      });
+      e.target.reset();
+      rafraichir();
+    });
+
+    async function supprimer(id) {
+      await fetch("/api/articles/" + id, { method: "DELETE" });
+      rafraichir();
+    }
+
+    rafraichir();
+    setInterval(rafraichir, 3000);
+  </script>
+</body>
+</html>
